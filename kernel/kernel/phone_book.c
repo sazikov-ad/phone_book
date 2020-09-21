@@ -13,7 +13,7 @@ EXPORT_SYMBOL(phone_book_del_user_impl);
 
 #define MODULE_NOT_LOADED_MESSAGE(syscall)                                     \
 	printk(KERN_INFO "=== phone_book_" #syscall                            \
-			  " syscall: phone_book module is not loaded\n")
+			 " syscall: phone_book module is not loaded\n")
 #define CHECK_MODULE_LOAD(syscall)                                             \
 	if (phone_book_##syscall##_impl == NULL) {                             \
 		MODULE_NOT_LOADED_MESSAGE(syscall);                            \
@@ -27,7 +27,7 @@ EXPORT_SYMBOL(phone_book_del_user_impl);
 	ALLOC(variable, type, count);                                          \
                                                                                \
 	if (variable == NULL) {                                                \
-		printk(KERN_ERR "===<< could not allocate memory\n");	       \
+		printk(KERN_ERR "===<< could not allocate memory\n");          \
 		return -EFAULT;                                                \
 	}
 
@@ -35,7 +35,7 @@ EXPORT_SYMBOL(phone_book_del_user_impl);
 	ALLOC(type *variable, type, count);                                    \
                                                                                \
 	if (variable == NULL) {                                                \
-		printk(KERN_ERR "===<< could not allocate memory\n");	       \
+		printk(KERN_ERR "===<< could not allocate memory\n");          \
 		return -EFAULT;                                                \
 	}
 
@@ -119,7 +119,6 @@ SYSCALL_DEFINE2(phone_book_get_user, const char __user *, surname,
 SYSCALL_DEFINE1(phone_book_add_user, const phone_book_user_data_t __user *,
 		user)
 {
-
 	CHECK_MODULE_LOAD(add_user);
 
 	phone_book_user_data_t user_buffer;
@@ -152,7 +151,7 @@ SYSCALL_DEFINE1(phone_book_add_user, const phone_book_user_data_t __user *,
 	}
 
 	long result = phone_book_add_user_impl(&user_data);
-	
+
 	DEALLOC(user_data.surname, user_data.name, user_data.email,
 		user_data.phone);
 
@@ -173,4 +172,3 @@ SYSCALL_DEFINE1(phone_book_del_user, const char __user *, surname)
 
 	return result;
 }
-

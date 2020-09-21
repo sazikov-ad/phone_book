@@ -2,11 +2,16 @@
 #include "device.h"
 
 #include <linux/miscdevice.h>
+#include <linux/phone_book.h>
 
 typedef enum command { GET_USER, ADD_USER, DEL_USER, NONE } command_t;
 
 #define ERROR_R "1"
 #define OK_R "0"
+
+extern phone_book_add_user_t phone_book_add_user_impl;
+extern phone_book_del_user_t phone_book_del_user_impl;
+extern phone_book_get_user_t phone_book_get_user_impl;
 
 static command_t last_command = NONE;
 static char *last_command_output = NULL;
@@ -237,6 +242,77 @@ static ssize_t device_write(struct file *file, const char *__user buffer,
 	return count;
 }
 
+static long get_user_impl(const char *surname,
+			  phone_book_internal_user_data_t *user_data)
+{
+	user_data_t *output = NULL;
+
+	if (book_get_user(surname, &output) == 0) {
+		size_t s_l = strlen(output->surname) + 1;
+		size_t n_l = strlen(output->name) + 1;
+		size_t e_l = strlen(output->email) + 1;
+		size_t p_l = strlen(output->phone) + 1;
+
+		user_data->surname =
+			(char *)kmalloc(sizeof(char) * s_l, GFP_KERNEL);
+		user_data->name =
+			(char *)kmalloc(sizeof(char) * n_l, GFP_KERNEL);
+		user_data->email =
+			(char *)kmalloc(sizeof(char) * e_l, GFP_KERNEL);
+		user_data->phone =
+			(char *)kmalloc(sizeof(char) * p_l, GFP_KERNEL);
+
+		memcpy(user_data->surname, output->surname, s_l);
+		memcpy(user_data->name, output->name, n_l);
+		memcpy(user_data->email, output->email, e_l);
+		memcpy(user_data->phone, output->phone, p_l);
+		user_data->age = output->age;
+
+		kfree(output->surname);
+		kfree(output->name);
+		kfree(output->phone);
+		kfree(output->email);
+		kfree(output);
+
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+static long add_user_impl(const phone_book_internal_user_data_t *user_data)
+{
+	user_data_t user;
+
+	size_t s_l = strlen(user_data->surname) + 1;
+	size_t n_l = strlen(user_data->name) + 1;
+	size_t e_l = strlen(user_data->email) + 1;
+	size_t p_l = strlen(user_data->phone) + 1;
+
+	user.surname = (char *)kmalloc(sizeof(char) * s_l, GFP_KERNEL);
+	user.name = (char *)kmalloc(sizeof(char) * n_l, GFP_KERNEL);
+	user.email = (char *)kmalloc(sizeof(char) * e_l, GFP_KERNEL);
+	user.phone = (char *)kmalloc(sizeof(char) * p_l, GFP_KERNEL);
+	memcpy(user.surname, user_data->surname, s_l);
+	memcpy(user.name, user_data->name, n_l);
+	memcpy(user.email, user_data->email, e_l);
+	memcpy(user.phone, user_data->phone, p_l);
+	user.age = user_data->age;
+	long res = book_add_user(&user);
+
+	kfree(user.surname);
+	kfree(user.name);
+	kfree(user.email);
+	kfree(user.phone);
+
+	return res;
+}
+
+static long del_user_impl(const char *surname)
+{
+	return book_del_user(surname);
+}
+
 static int minor = 0;
 module_param(minor, int, S_IRUGO);
 
@@ -269,6 +345,10 @@ static int __init dev_init(void)
 		printk(KERN_INFO "====== Misc device registered ======\n");
 	}
 
+	phone_book_add_user_impl = &add_user_impl;
+	phone_book_del_user_impl = &del_user_impl;
+	phone_book_get_user_impl = &get_user_impl;
+
 	return ret;
 }
 
@@ -277,4 +357,8 @@ static void __exit dev_exit(void)
 	book_exit();
 	misc_deregister(&misc_dev);
 	printk(KERN_INFO "====== Misc device unregistered ======\n");
+
+	phone_book_add_user_impl = NULL;
+	phone_book_get_user_impl = NULL;
+	phone_book_get_user_impl = NULL;
 }
